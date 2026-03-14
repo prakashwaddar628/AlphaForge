@@ -1,0 +1,49 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: alphaforge
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: market_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  mongodb:
+    image: mongo:latest
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql://alphaforge:password@db:5432/market_db
+      REDIS_URL: redis://redis:6379/0
+      MONGO_URI: mongodb://mongodb:27017/sentiment_db
+    depends_on:
+      - db
+      - redis
+      - mongodb
+
+  ml_worker:
+    build: ./ml_worker
+    environment:
+      DATABASE_URL: postgresql://alphaforge:password@db:5432/market_db
+    depends_on:
+      - db
+
+volumes:
+  postgres_data:
+  mongo_data:
