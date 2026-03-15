@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Inter } from "next/font/google";
 import "./globals.css";
 
@@ -25,8 +26,8 @@ export default function RootLayout({
                 <h1 className="text-xl font-bold tracking-tight">AlphaForge</h1>
               </div>
               <nav className="flex gap-6 text-sm font-medium text-slate-400">
-                <a href="/" className="hover:text-blue-400 transition-colors">Dashboard</a>
-                <a href="#" className="hover:text-blue-400 transition-colors">Portfolio</a>
+                <Link href="/" className="hover:text-blue-400 transition-colors">Dashboard</Link>
+                <Link href="/portfolio" className="hover:text-blue-400 transition-colors">Portfolio</Link>
                 <a href="#" className="hover:text-blue-400 transition-colors">Sentiment</a>
                 <a href="#" className="hover:text-blue-400 transition-colors">Economics</a>
               </nav>

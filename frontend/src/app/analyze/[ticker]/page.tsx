@@ -22,7 +22,27 @@ const generateMockData = (ticker: string) => {
 
 export default function AnalysisPage({ params }: { params: Promise<{ ticker: string }> }) {
   const { ticker } = use(params);
-  const data = generateMockData(ticker);
+  const [data, setData] = React.useState<any>(null);
+  const [loading, setLoading] = React.useState(true);
+  const chartData = generateMockData(ticker); // Keep mock chart data for now as it needs a separate history endpoint
+
+  React.useEffect(() => {
+    const fetchAnalysis = async () => {
+      try {
+        const res = await fetch(`http://localhost:8000/analyze/${ticker}`);
+        const result = await res.json();
+        setData(result);
+      } catch (error) {
+        console.error("Fetch failed", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchAnalysis();
+  }, [ticker]);
+
+  if (loading) return <div className="flex items-center justify-center min-h-[400px]">Loading AI Insights...</div>;
+  if (!data) return <div className="p-8 text-center text-red-400">Failed to load analysis for {ticker}</div>;
 
   return (
     <div className="space-y-6">
@@ -48,16 +68,16 @@ export default function AnalysisPage({ params }: { params: Promise<{ ticker: str
                 <p className="text-slate-500 text-sm font-medium uppercase tracking-widest">{ticker} • NSE INDIA</p>
               </div>
               <div className="text-right">
-                <p className="text-3xl font-bold text-slate-100">₹1,452.80</p>
+                <p className="text-3xl font-bold text-slate-100">₹{data.last_close.toLocaleString()}</p>
                 <p className="text-green-500 font-medium flex items-center justify-end gap-1">
-                  +₹24.30 (+1.24%) <TrendingUp className="w-4 h-4" />
+                  AI Conf: {(data.prediction?.probability * 100).toFixed(1)}% <TrendingUp className="w-4 h-4" />
                 </p>
               </div>
             </div>
 
             <div className="h-[400px] w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={data}>
+                <AreaChart data={chartData}>
                   <defs>
                     <linearGradient id="colorPrice" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
@@ -85,20 +105,22 @@ export default function AnalysisPage({ params }: { params: Promise<{ ticker: str
                 </h3>
                 <div className="space-y-3">
                     <div className="flex justify-between items-center text-sm border-b border-slate-800 pb-2">
-                        <span className="text-slate-400">RSI (14)</span>
-                        <span className="font-mono text-blue-400 font-bold">42.50 (Neutral)</span>
+                        <span className="text-slate-400">RSI</span>
+                        <span className="font-mono text-blue-400 font-bold">{data.technicals.RSI.toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between items-center text-sm border-b border-slate-800 pb-2">
                         <span className="text-slate-400">MACD</span>
-                        <span className="font-mono text-green-500 font-bold">Bullish Crossover</span>
+                        <span className={`font-mono font-bold ${data.technicals.MACD > 0 ? 'text-green-500' : 'text-red-500'}`}>
+                          {data.technicals.MACD.toFixed(4)}
+                        </span>
                     </div>
                     <div className="flex justify-between items-center text-sm border-b border-slate-800 pb-2">
-                        <span className="text-slate-400">SMA 50/200</span>
-                        <span className="font-mono text-slate-200 font-bold">Golden Cross Approaching</span>
+                        <span className="text-slate-400">Volatility (ATR)</span>
+                        <span className="font-mono text-slate-200 font-bold">{data.technicals.ATR.toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between items-center text-sm">
-                        <span className="text-slate-400">Bollinger Bands</span>
-                        <span className="font-mono text-slate-200 font-bold">Price near Mid-band</span>
+                        <span className="text-slate-400">SMA 20</span>
+                        <span className="font-mono text-slate-200 font-bold">{data.technicals.SMA_20.toFixed(2)}</span>
                     </div>
                 </div>
             </div>
@@ -108,21 +130,22 @@ export default function AnalysisPage({ params }: { params: Promise<{ ticker: str
                     <Zap className="w-4 h-4 text-yellow-400" /> Sentiment Analysis (FinBERT)
                 </h3>
                 <div className="flex items-center gap-4 mb-4">
-                    <div className="text-4xl font-bold text-green-500">+0.74</div>
+                    <div className={`text-4xl font-bold ${data.sentiment_score >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                      {data.sentiment_score >= 0 ? '+' : ''}{data.sentiment_score.toFixed(2)}
+                    </div>
                     <div className="text-xs text-slate-500">
-                        Based on 12 news articles and 435 social mentions in the last 24h.
+                        Institutional sentiment index based on latest news cycle.
                     </div>
                 </div>
                 <div className="space-y-2">
                     <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden flex">
-                        <div className="h-full bg-green-500" style={{ width: '70%' }}></div>
-                        <div className="h-full bg-slate-700" style={{ width: '20%' }}></div>
-                        <div className="h-full bg-red-500" style={{ width: '10%' }}></div>
+                        <div className="h-full bg-green-500" style={{ width: `${(data.sentiment_score + 1) * 50}%` }}></div>
+                        <div className="h-full bg-slate-700" style={{ width: `${100 - (data.sentiment_score + 1) * 50}%` }}></div>
                     </div>
                     <div className="flex justify-between text-[10px] uppercase font-bold text-slate-500 tracking-tighter">
-                        <span>70% Positive</span>
-                        <span>20% Neutral</span>
-                        <span>10% Negative</span>
+                        <span>Bullish Bias</span>
+                        <span>Neutral</span>
+                        <span>Bearish Bias</span>
                     </div>
                 </div>
             </div>
@@ -138,9 +161,11 @@ export default function AnalysisPage({ params }: { params: Promise<{ ticker: str
             
             <div className="mb-6 text-center">
                 <div className="inline-block px-8 py-4 bg-blue-600 rounded-2xl text-2xl font-black mb-2 shadow-lg border border-blue-400 uppercase">
-                    Strong Buy
+                    {data.signal}
                 </div>
-                <p className="text-xs text-blue-300 font-medium tracking-wide">CONFIDENCE SCORE: 88.4%</p>
+                <p className="text-xs text-blue-300 font-medium tracking-wide">
+                  MODEL: {data.prediction?.prediction} ({(data.prediction?.probability * 100).toFixed(1)}%)
+                </p>
             </div>
 
             <div className="space-y-4">
@@ -149,8 +174,11 @@ export default function AnalysisPage({ params }: { params: Promise<{ ticker: str
                         <Target className="w-4 h-4 text-blue-300" />
                     </div>
                     <div>
-                        <p className="text-xs font-bold text-blue-100 mb-0.5">Price Target</p>
-                        <p className="text-sm text-blue-200">₹1,540.00 (+6.0%)</p>
+                        <p className="text-xs font-bold text-blue-100 mb-0.5">LSTM Price Target</p>
+                        <p className="text-sm text-blue-200">
+                          ₹{data.price_target?.toLocaleString() || 'N/A'} 
+                          {data.price_target && ` (${((data.price_target / data.last_close - 1) * 100).toFixed(1)}%)`}
+                        </p>
                     </div>
                 </div>
                 <div className="flex gap-3">
@@ -159,7 +187,7 @@ export default function AnalysisPage({ params }: { params: Promise<{ ticker: str
                     </div>
                     <div>
                         <p className="text-xs font-bold text-blue-100 mb-0.5">Risk Level</p>
-                        <p className="text-sm text-blue-200">Low to Moderate</p>
+                        <p className="text-sm text-blue-200">{data.sentiment_score > 0.5 ? 'Low' : 'Moderate'}</p>
                     </div>
                 </div>
                 <div className="flex gap-3">
@@ -167,8 +195,10 @@ export default function AnalysisPage({ params }: { params: Promise<{ ticker: str
                         <Scan className="w-4 h-4 text-blue-300" />
                     </div>
                     <div>
-                        <p className="text-xs font-bold text-blue-100 mb-0.5">Top Catalyst</p>
-                        <p className="text-sm text-blue-200">Strong earnings beat expectations and positive management guidance.</p>
+                        <p className="text-xs font-bold text-blue-100 mb-0.5">Optimization Suggestion</p>
+                        <p className="text-sm text-blue-200">
+                          {data.signal.includes('BUY') ? 'Weight up in Max Sharpe portfolio.' : 'Maintain current allocation.'}
+                        </p>
                     </div>
                 </div>
             </div>
@@ -180,26 +210,26 @@ export default function AnalysisPage({ params }: { params: Promise<{ ticker: str
             </h3>
             <div className="grid grid-cols-2 gap-4 text-xs">
                 <div className="p-3 bg-slate-950 rounded-xl border border-slate-800">
-                    <p className="text-slate-500 mb-1">Mkt Cap</p>
-                    <p className="font-bold">18.52T</p>
+                    <p className="text-slate-500 mb-1">Last Close</p>
+                    <p className="font-bold">₹{data.last_close.toFixed(2)}</p>
                 </div>
                 <div className="p-3 bg-slate-950 rounded-xl border border-slate-800">
-                    <p className="text-slate-500 mb-1">P/E Ratio</p>
-                    <p className="font-bold">24.5</p>
+                    <p className="text-slate-500 mb-1">Probability</p>
+                    <p className="font-bold">{(data.prediction?.probability * 100).toFixed(1)}%</p>
                 </div>
                 <div className="p-3 bg-slate-950 rounded-xl border border-slate-800">
-                    <p className="text-slate-500 mb-1">ROE</p>
-                    <p className="font-bold">14.2%</p>
+                    <p className="text-slate-500 mb-1">Sentiment</p>
+                    <p className="font-bold">{data.sentiment_score.toFixed(2)}</p>
                 </div>
                 <div className="p-3 bg-slate-950 rounded-xl border border-slate-800">
-                    <p className="text-slate-500 mb-1">Div Yield</p>
-                    <p className="font-bold">0.8%</p>
+                    <p className="text-slate-500 mb-1">Direction</p>
+                    <p className="font-bold">{data.prediction?.prediction}</p>
                 </div>
             </div>
           </div>
           
-          <Link href="#" className="block w-full text-center py-4 bg-slate-100 hover:bg-white text-slate-950 font-bold rounded-2xl transition-all hover:scale-[1.02] active:scale-95 shadow-lg">
-            Add to Portfolio
+          <Link href="/portfolio" className="block w-full text-center py-4 bg-slate-100 hover:bg-white text-slate-950 font-bold rounded-2xl transition-all hover:scale-[1.02] active:scale-95 shadow-lg">
+            Optimize Portfolio
           </Link>
         </div>
       </div>

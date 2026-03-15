@@ -7,6 +7,7 @@ import os
 
 from .prediction_engine import PredictionEngine
 from .signal_engine import SignalEngine
+from ml_worker.portfolio_optimizer import PortfolioOptimizer
 
 app = FastAPI(title="AlphaForge API", description="AI-powered Stock Market Intelligence API", version="0.1.0")
 
@@ -21,6 +22,7 @@ app.add_middleware(
 # Initialize engines
 prediction_engine = PredictionEngine()
 signal_engine = SignalEngine()
+portfolio_optimizer = PortfolioOptimizer()
 
 class MarketData(BaseModel):
     ticker: str
@@ -68,14 +70,35 @@ async def analyze_ticker(ticker: str):
     # Generate signal
     signal = signal_engine.generate_signal(features_dict, sentiment_score, prediction)
     
+    # Get concrete price target
+    price_target = prediction_engine.predict_price_target(ticker)
+    
     return {
         "ticker": ticker,
         "last_close": float(latest_features_row['Close']),
         "technicals": features_dict,
         "prediction": prediction,
+        "price_target": price_target,
         "signal": signal,
         "sentiment_score": sentiment_score
     }
+
+@app.get("/optimize")
+async def optimize_portfolio(method: str = "sharpe"):
+    """
+    Optimize portfolio based on the requested method ('sharpe' or 'min_vol').
+    """
+    if method == "sharpe":
+        result = portfolio_optimizer.optimize_sharpe()
+    elif method == "min_vol":
+        result = portfolio_optimizer.optimize_min_volatility()
+    else:
+        raise HTTPException(status_code=400, detail="Invalid optimization method. Use 'sharpe' or 'min_vol'.")
+    
+    if not result:
+        raise HTTPException(status_code=500, detail="Portfolio optimization failed.")
+        
+    return result
 
 if __name__ == "__main__":
     import uvicorn
